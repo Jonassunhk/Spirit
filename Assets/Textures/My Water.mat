@@ -51,7 +51,7 @@ Material:
     - _Refraction: 0.01
     - _Smoothness: 0.52
     - _Water_Lerp: 0.5
-    - _Wave: 0.2
+    - _Wave: 0
     m_Colors:
     - _Albedo: {r: 0.31173608, g: 0.3277306, b: 0.3490566, a: 0}
     - _UV1: {r: 8, g: 8, b: -0.81, a: -0.01}

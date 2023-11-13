@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VLBConfigOverride
   m_EditorClassIdentifier: 
   geometryOverrideLayer: 1
-  geometryLayerID: 1
+  geometryLayerID: 2
   geometryTag: Untagged
   geometryRenderQueue: 3000
   _RenderPipeline: 1
