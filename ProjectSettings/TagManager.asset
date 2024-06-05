@@ -9,6 +9,12 @@ TagManager:
   - Light Blocker
   - Respawn Point
   - Harmful Light
+  - Dialogue
+  - Pool Edge
+  - Underwater Button
+  - Pool Button
+  - Death Block
+  - Save Adrian Button
   layers:
   - Default
   - TransparentFX

@@ -25,15 +25,7 @@ public class LightingManager : MonoBehaviour
         }
     }
 
-    IEnumerator LerpIntensity(int a,int b,int x) // a = start, b = end, x = time frame
-    {
-        float n = 0;  // lerped value
-        for (float f = 0; f <= x; f += Time.deltaTime)
-        {
-            n = Mathf.Lerp(a, b, f / x); // passing in the start + end values, and using our elapsed time 'f' as a portion of the total time 'x'
-            yield return null;
-        }
-    }
+
 
     private void Start()
     {

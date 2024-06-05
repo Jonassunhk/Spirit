@@ -1,21 +1,26 @@
+using Cinemachine;
 using System;
-using UnityEditor.Experimental.GraphView;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 
 
 public class AnimationMovementController : MonoBehaviour
 {
     PlayerInput playerInput;
     CharacterController characterController;
+    public UIManager UIManager;
+    public PoolManager poolManager;
+    public CameraManager cameraManager;
+    public DissolveAnimation dissolveAnimation;
 
-    int isRunningHash, isJumpingHash, inWaterHash, isSwimmingHash, leftLegFrontHash, isPushingHash, isDeadHash, respawnHash;
+    int isRunningHash, isJumpingHash, inWaterHash, isSwimmingHash, leftLegFrontHash, isPushingHash, isDeadHash, respawnHash, poolClimbHash, isFallingHash;
     Quaternion targetRotation;
 
     Vector2 currentMovementInput;
     Vector3 currentMovement;
     bool isMovementPressed;
+    public bool canUpdate = true;
     Animator animator;
 
     //constants
@@ -38,8 +43,10 @@ public class AnimationMovementController : MonoBehaviour
     float waterRotationFactorPerFrame = 1.0f;
     float swimSpeed = 4.5f;
     //bool isSwimming = false;
-    float waterLevel = -21f;
+    float waterLevel = -19f;
     bool inWater = false;
+    float waterReducer = 0.05f;
+    bool diveTransitioning = false;
 
     // obstacle detection
     float detectDistance = 2f;
@@ -51,6 +58,13 @@ public class AnimationMovementController : MonoBehaviour
     public lightFlashScript lightFlash;
     float blockDetectDistance = 20f;
 
+    // pool edge 
+    bool atPoolEdge = false;
+    bool poolTransitioning = false;
+    System.DateTime startTime;
+    float transitionPeriod = 0.8f;
+    float speedX = -3f;
+    float speedY = 3f;
 
 
     private void Awake()
@@ -68,12 +82,15 @@ public class AnimationMovementController : MonoBehaviour
         isPushingHash = Animator.StringToHash("isPushing");
         isDeadHash = Animator.StringToHash("isDead");
         respawnHash = Animator.StringToHash("respawn");
+        poolClimbHash = Animator.StringToHash("poolClimb");
+        isFallingHash = Animator.StringToHash("isFalling");
 
         playerInput.CharacterControls.Move.started += onMovementInput;
         playerInput.CharacterControls.Move.canceled += onMovementInput;
         playerInput.CharacterControls.Move.performed += onMovementInput;
         playerInput.CharacterControls.Jump.started += onJump;
         playerInput.CharacterControls.Jump.canceled += onJump;
+        playerInput.CharacterControls.Interact.started += onInteract;
 
         GameManager.OnGameStateChanged += GameManagerOnGameStateChanged;
 
@@ -84,8 +101,9 @@ public class AnimationMovementController : MonoBehaviour
     public void respawn(GameState gameState)
     {
         Vector3 pos = new Vector3(0,0,0);
+        
 
-        if (gameState == GameState.Hallway) { 
+        if (gameState == GameState.Hallway || gameState == GameState.MainScreen) { 
             pos = gameManager.hallwaySpawn.transform.position;
         } else if (gameState == GameState.Gym)
         {
@@ -97,10 +115,18 @@ public class AnimationMovementController : MonoBehaviour
         {
             pos = gameManager.poolSpawn.transform.position;
         }
+
+        // resetting
         characterController.enabled = false;
         characterController.transform.position = pos;
         characterController.enabled = true;
+        inWater = false;
+        currentMovement = Vector3.zero;
         animator.SetTrigger(respawnHash);
+        cameraManager.resetToDefaultPriority();
+        resetParameters();
+        animator.Play("Idle");
+        canUpdate = true;
     }
 
     private void OnDestroy()
@@ -128,21 +154,31 @@ public class AnimationMovementController : MonoBehaviour
         }
     }
 
-    void onJump(InputAction.CallbackContext context) 
+    void onJump(InputAction.CallbackContext context) // jump button pressed
     {
         isJumpPressed = context.ReadValueAsButton();
+        if (!diveTransitioning && isJumpPressed && inWater && atPoolEdge && !animator.GetBool(isSwimmingHash)) // pool edge movement
+        {
+            animator.SetBool(poolClimbHash, true); // trigger animation
+            startTime = System.DateTime.UtcNow;
+            poolTransitioning = true;
+            // animator.SetBool(inWaterHash, false);
+        }
     }
 
     void onMovementInput (InputAction.CallbackContext context)
     {
-        currentMovementInput = context.ReadValue<Vector2>();
-        currentMovement.x = currentMovementInput.x;
-        if (inWater) {
-            currentMovement.y = currentMovementInput.y;
-        }
-        
-        isMovementPressed = currentMovementInput.x != 0 || currentMovementInput.y != 0;
+        if (!diveTransitioning && !poolTransitioning)
+        {
+            currentMovementInput = context.ReadValue<Vector2>();
+            currentMovement.x = currentMovementInput.x;
+            if (inWater)
+            {
+                currentMovement.y = currentMovementInput.y;
+            }
 
+            isMovementPressed = currentMovementInput.x != 0 || currentMovementInput.y != 0;
+        }
     }
 
     void handleGravity()
@@ -166,26 +202,54 @@ public class AnimationMovementController : MonoBehaviour
             float nextYVelocity = (previousYVelocity + newYVelocity) * 0.5f;
             currentMovement.y = nextYVelocity;
         }
+
+        if (currentMovement.y < -2.5f) {
+            animator.SetBool(isFallingHash, true);
+        } else {
+            animator.SetBool(isFallingHash, false);
+        }
     }
+
     
-    void resetParameters() {
+    public void resetParameters() {
         foreach (AnimatorControllerParameter parameter in animator.parameters)
         {
             animator.SetBool(parameter.name, false);
         }
-        
     }
-    private void OnTriggerEnter(Collider other)
+
+    public void resetAnimation()
+    {
+        animator.Play("Idle");
+    }
+    public void exitWater()
+    {
+        Debug.Log("Player exiting water!");
+        resetParameters();
+        inWater = false;
+        animator.SetBool(inWaterHash, false);
+    }
+    private void OnTriggerEnter(Collider other) // collided with something
     {
         Debug.Log("Collided");
-        if (other.CompareTag("Water"))
+        if (other.CompareTag("Water")) // if hit water
         {
             resetParameters();
+            animator.SetBool(inWaterHash, true);
+            //animator.SetBool(isSwimmingHash, true);
+            Debug.Log("Collided with Water! Current state: " + animator.GetCurrentAnimatorStateInfo(0).shortNameHash);
             inWater = true;
             isJumping = false;
-            animator.SetBool(inWaterHash, true);
+            diveTransitioning = true;
+            currentMovement.x = 0;
+            currentMovement.y = Math.Min(-7f, currentMovement.y);
 
-            Debug.Log("Collided with Water!");
+            Debug.Log("Collided with Water! Current y movement: " + currentMovement.y);
+        } else if (other.CompareTag("Death Block"))
+        {
+            canUpdate = false;
+            gameManager.UpdateGameState(GameState.PlayerDeath);
+
         } else if (other.CompareTag("Respawn Point"))
         {
             switch (other.name)
@@ -203,9 +267,37 @@ public class AnimationMovementController : MonoBehaviour
                     gameManager.UpdateGameState(GameState.Classroom);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException("Name", other.name,null);
-   
+                    throw new ArgumentOutOfRangeException("Name", other.name, null);
+
             }
+        } else if (other.CompareTag("Dialogue")) // hit a dialogue block
+        {
+            int number = int.Parse(other.name);
+            gameManager.updateDialogue(number);
+        } else if (other.CompareTag("Pool Edge")) // hit pool edge while in water
+        {
+            Debug.Log("Collided with pool edge");
+            if (other.transform.name == "PoolEdgeFront") // going front
+            {
+                speedX = -5f;
+            } else if (other.transform.name == "PoolEdgeBack") // going back
+            {
+                speedX = 5f;
+            }
+            atPoolEdge = true;
+
+        } else if (other.CompareTag("Underwater Button")) // in range of button to lower water level
+        {
+            UIManager.showStoryboard("Press E to interact");
+            poolManager.onPlayerInRange();
+        } else if (other.CompareTag("Pool Button")) // player pressed pool mechanism button
+        {
+            UIManager.showStoryboard("Press E to interact");
+            poolManager.onPlayerInRange2();
+        } else if (other.CompareTag("Save Adrian Button") && poolManager.waterDescended)
+        {
+            UIManager.showStoryboard("Press E to combine");
+            poolManager.onPlayerInRange3();
         }
     }
 
@@ -214,10 +306,27 @@ public class AnimationMovementController : MonoBehaviour
         Debug.Log("Collision exit");
         if (other.CompareTag("Water"))
         {
-            resetParameters();
-            inWater = false;
+            exitWater();
+            cameraManager.resetToDefaultPriority();
             Debug.Log("Collision exited with Water!");
+        } else if (other.CompareTag("Pool Edge"))
+        {
+            Debug.Log("Collision exited with pool edge");
+            atPoolEdge = false;
+        } else if (other.CompareTag("Underwater Button"))
+        {
+            UIManager.storyboardPage.SetActive(false);
+            poolManager.onPlayerOutOfRange();
+        } else if (other.CompareTag("Pool Button"))
+        {
+            UIManager.storyboardPage.SetActive(false);
+            poolManager.onPlayerOutOfRange2();
         }
+    }
+
+    void onInteract(InputAction.CallbackContext context)
+    {
+        poolManager.onButtonPress();
     }
 
     void handleObstacles()
@@ -243,7 +352,6 @@ public class AnimationMovementController : MonoBehaviour
     }
     void handleLightBlockers()
     {
-        
             bool avoided = true;
             RaycastHit hit;
             if (Physics.Raycast(characterController.transform.position, new Vector3(0,0,1), out hit, blockDetectDistance))
@@ -267,9 +375,14 @@ public class AnimationMovementController : MonoBehaviour
     {
         if (gameState == GameState.PlayerDeath) // player died, play death animation
         {
+            canUpdate = false;
             Debug.Log("death animation played");
-            animator.SetTrigger(isDeadHash);
+            if (!inWater)
+            {
+                animator.SetTrigger(isDeadHash);
 
+            }
+            dissolveAnimation.dissolve(true);
         }
     }
 
@@ -278,7 +391,6 @@ public class AnimationMovementController : MonoBehaviour
         Vector3 positionToLookAt;
         float rotationFactor;
         
-
         positionToLookAt.x = currentMovement.x;
         positionToLookAt.z = currentMovement.z;
 
@@ -361,21 +473,81 @@ public class AnimationMovementController : MonoBehaviour
             }
     }
 
+    void setDefaultCamera()
+    {
+        if (inWater)
+        {
+            if (characterController.transform.position.x < 105)
+            {
+                cameraManager.setCameraPriority("Tunnel Camera", 6);
+            }
+            else if (characterController.transform.position.x > 105 && characterController.transform.position.x < 150)
+            {
+                cameraManager.setCameraPriority("Tunnel Camera (2)", 6);
+            }
+            else
+            {
+                cameraManager.setCameraPriority("Underwater Camera", 6);
+            }
+        }
+    }
+    void checkTransitioning()
+    {
+        if (poolTransitioning)
+        {
+            System.TimeSpan ts = System.DateTime.UtcNow - startTime;
+            if (ts.Seconds < transitionPeriod)
+            {
+                Debug.Log("pool transitioning");
+                currentMovement.y = speedY;
+                currentMovement.x = speedX;
+                characterController.Move(currentMovement * Time.deltaTime);
+            }
+            else
+            {
+                currentMovement.y = 0;
+                currentMovement.x = 0;
+                animator.SetBool(poolClimbHash, false);
+                poolTransitioning = false;
+            }
+            return;
+        }
+        if (diveTransitioning)
+        {
+            currentMovement.y += waterReducer;
+            characterController.Move(currentMovement * Time.deltaTime);
+            if (currentMovement.y > -0.03)
+            {
+                currentMovement.y = 0;
+                diveTransitioning = false;
+            }
+            return;
+        }
+    }
+
     // Update is called once per frame
     void Update()
     {
-        
+
+        setDefaultCamera();
+        if (!canUpdate) { return; }
         handleObstacles();
         handleLightBlockers();
         handleRotation();
-        handleAnimation();
 
         // check if the player is rising above the water
-        if (inWater && characterController.transform.position.y + currentMovement.y * Time.deltaTime * swimSpeed >= waterLevel) {
+        if (inWater && !diveTransitioning && characterController.transform.position.y + currentMovement.y * Time.deltaTime * swimSpeed >= waterLevel) {
             currentMovement.y = 0;
         }
 
-        //Debug.Log(currentMovement);
+        if (diveTransitioning || poolTransitioning)
+        {
+            checkTransitioning();
+            return;
+        }
+
+        handleAnimation();
+
         if (isJumping) {
             Debug.Log("Player is JUMPING");
             characterController.Move(currentMovement * Time.deltaTime * jumpRunSpeed);
@@ -387,8 +559,8 @@ public class AnimationMovementController : MonoBehaviour
         {
             characterController.Move(currentMovement * Time.deltaTime * runSpeed);
         }
-        if (!inWater)
-        {
+        
+        if (!inWater){
             handleGravity();
             handleJump();
         }

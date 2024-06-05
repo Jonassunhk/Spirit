@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.kink3d.mirrors": "file:C:/Users/hahas/Downloads/kMirrors-master/kMirrors-master",
+    "com.unity.adaptiveperformance": "5.0.2",
     "com.unity.cinemachine": "2.9.7",
     "com.unity.collab-proxy": "2.0.4",
     "com.unity.feature.development": "1.0.1",

@@ -13,9 +13,9 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords: []
-  m_LightmapFlags: 2
+  m_LightmapFlags: 1
   m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
+  m_DoubleSidedGI: 1
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
@@ -41,8 +41,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Depth: 0.736
-    - _Depth_Fade: 0
+    - _Depth: 0.264
+    - _Depth_Fade: 3.3
     - _Normal_Strength: 0.63
     - _QueueControl: 0
     - _QueueOffset: 0
@@ -52,7 +52,7 @@ Material:
     - _Water_Lerp: 0.494
     - _Wave: 0
     m_Colors:
-    - _Albedo: {r: 0.38762307, g: 0.4339329, b: 0.4433962, a: 0}
+    - _Albedo: {r: 0.5849056, g: 0.5849056, b: 0.5849056, a: 0}
     - _UV1: {r: 8, g: 8, b: 0, a: 0}
     - _UV2: {r: 6, g: 6, b: 0, a: 0}
     - _Water_Speed_1: {r: 0.078, g: 0.12, b: 0, a: 0}
