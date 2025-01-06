@@ -1,4 +1,4 @@
-# UnityGameProject
+# Spirit: A 2.5D Puzzle Platformer on Unity
 
 SPIRIT is a puzzle 2.5D platformer game developed with Unity and Blender that explores the theme of academic pressure. The player controls a courageous spirit who must solve puzzles to save its physical form, the student Adrian, from dying of pressure.
 
