@@ -9,3 +9,9 @@ The second level is a gymnasium with dramatic lighting. The player must find a m
 The third level is a library with flashing red lights from a projector. The player must hide behind shelves to travel across without touching the red.
 
 Finally, after finding Adrian drowning in a pool, the player must swim in the pool to find mechanisms and a secret tunnel that lets out the water, ultimately saving the physical form.
+
+Play the game here (~10 minutes): https://xiangzhousun.itch.io/spirit
+
+Game Analysis (~2 minutes): https://www.youtube.com/watch?v=XySr1ehZvd0
+
+Full Gameplay (~5 minutes): https://www.youtube.com/watch?v=ngQyYdpAd7s
