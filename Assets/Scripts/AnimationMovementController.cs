@@ -12,11 +12,13 @@ public class AnimationMovementController : MonoBehaviour
     public UIManager UIManager;
     public PoolManager poolManager;
     public CameraManager cameraManager;
+    public soundManager soundManager;
     public DissolveAnimation dissolveAnimation;
 
     int isRunningHash, isJumpingHash, inWaterHash, isSwimmingHash, leftLegFrontHash, isPushingHash, isDeadHash, respawnHash, poolClimbHash, isFallingHash;
     Quaternion targetRotation;
 
+    public GameObject basketball_cage;
     Vector2 currentMovementInput;
     Vector3 currentMovement;
     bool isMovementPressed;
@@ -38,6 +40,7 @@ public class AnimationMovementController : MonoBehaviour
     float fallMultiplier = 1.2f;
     bool isJumping = false;
     bool isJumpAnimating = false;
+    private float previousYVelocity = 0f;
 
     //swimming variables
     float waterRotationFactorPerFrame = 1.0f;
@@ -175,9 +178,11 @@ public class AnimationMovementController : MonoBehaviour
             if (inWater)
             {
                 currentMovement.y = currentMovementInput.y;
+                isMovementPressed = currentMovementInput.x != 0 || currentMovementInput.y != 0;
+            } else
+            {
+                isMovementPressed = currentMovementInput.x != 0;
             }
-
-            isMovementPressed = currentMovementInput.x != 0 || currentMovementInput.y != 0;
         }
     }
 
@@ -185,21 +190,32 @@ public class AnimationMovementController : MonoBehaviour
     {
         bool isFalling = currentMovement.y <= 0.0f || !isJumpPressed;
         
+        
         if (characterController.isGrounded) {
+           
+            if (previousYVelocity < -1f)
+            {
+                soundManager.PlaySound("landing");
+            }
+            previousYVelocity = currentMovement.y;
+
             if (isJumpAnimating) {
                 animator.SetBool(isJumpingHash, false);
-                isJumpAnimating = false; 
+                isJumpAnimating = false;
+                soundManager.PlaySound("landing");
             }
             currentMovement.y = groundedGravity;
         } else if (isFalling) {
+            
             float previousYVelocity = currentMovement.y;
             float newYVelocity = currentMovement.y + (gravity * fallMultiplier * Time.deltaTime);
             float nextYVelocity = Mathf.Max((previousYVelocity + newYVelocity) * 0.5f, -20.0f);
             currentMovement.y = nextYVelocity;
-        } else {
+
+        } else { // caculating the change in y position for the next frame
             float previousYVelocity = currentMovement.y;
-            float newYVelocity = currentMovement.y + (gravity * Time.deltaTime);
-            float nextYVelocity = (previousYVelocity + newYVelocity) * 0.5f;
+            float newYVelocity = currentMovement.y + (gravity * Time.deltaTime); // vf = vi + at (equation of motion)
+            float nextYVelocity = (previousYVelocity + newYVelocity) * 0.5f; //  delta x = 0.5 * (vi + vf) (equation of motion)
             currentMovement.y = nextYVelocity;
         }
 
@@ -228,6 +244,9 @@ public class AnimationMovementController : MonoBehaviour
         resetParameters();
         inWater = false;
         animator.SetBool(inWaterHash, false);
+        soundManager.PlaySound("exitWater");
+        soundManager.FadeOut("swimmingPoolBackgroundMusic", 1f);
+        soundManager.FadeOut("underwaterAmbience", 1f);
     }
     private void OnTriggerEnter(Collider other) // collided with something
     {
@@ -238,11 +257,17 @@ public class AnimationMovementController : MonoBehaviour
             animator.SetBool(inWaterHash, true);
             //animator.SetBool(isSwimmingHash, true);
             Debug.Log("Collided with Water! Current state: " + animator.GetCurrentAnimatorStateInfo(0).shortNameHash);
+            
             inWater = true;
             isJumping = false;
             diveTransitioning = true;
             currentMovement.x = 0;
             currentMovement.y = Math.Min(-7f, currentMovement.y);
+
+            // sounds
+            soundManager.PlaySound("waterSplash");
+            soundManager.PlaySound("underwaterAmbience");
+            soundManager.FadeIn("swimmingPoolBackgroundMusic", 7f, 0.3f);
 
             Debug.Log("Collided with Water! Current y movement: " + currentMovement.y);
         } else if (other.CompareTag("Death Block"))
@@ -273,7 +298,7 @@ public class AnimationMovementController : MonoBehaviour
         } else if (other.CompareTag("Dialogue")) // hit a dialogue block
         {
             int number = int.Parse(other.name);
-            gameManager.updateDialogue(number);
+            //gameManager.updateDialogue(number);
         } else if (other.CompareTag("Pool Edge")) // hit pool edge while in water
         {
             Debug.Log("Collided with pool edge");
@@ -329,10 +354,11 @@ public class AnimationMovementController : MonoBehaviour
         poolManager.onButtonPress();
     }
 
-    void handleObstacles()
+    void handleObstacle()
     {
         RaycastHit hit;
         animator.SetBool(isPushingHash, false);
+        soundManager.muteSound("BasketballCage");
         if (Physics.Raycast(characterController.transform.position, characterController.transform.forward, out hit, detectDistance)) { 
             if (hit.collider.tag == "Obstacle")
             {
@@ -342,6 +368,13 @@ public class AnimationMovementController : MonoBehaviour
                 {
                     animator.SetBool(isPushingHash, true);
                     Rigidbody body = hit.collider.attachedRigidbody;
+                    if (hit.transform.name == "basketball_cage")
+                    {
+                        if (!hit.transform.gameObject.GetComponent<basketballCage>().positionFixed) {
+                            soundManager.unmuteSound("BasketballCage");
+                 
+                        }
+                    }
                     if (body != null)
                     {
                         body.AddForce(characterController.transform.forward * pushStrength);
@@ -376,13 +409,16 @@ public class AnimationMovementController : MonoBehaviour
         if (gameState == GameState.PlayerDeath) // player died, play death animation
         {
             canUpdate = false;
+            soundManager.PlaySound("deathSound");
+            soundManager.StopSound("underwaterAmbience");
+            soundManager.FadeOut("swimmingPoolBackgroundMusic", 2f);
             Debug.Log("death animation played");
             if (!inWater)
             {
                 animator.SetTrigger(isDeadHash);
 
             }
-            dissolveAnimation.dissolve(true);
+            dissolveAnimation.dissolve(true, 0.4f, 1f);
         }
     }
 
@@ -392,7 +428,7 @@ public class AnimationMovementController : MonoBehaviour
         float rotationFactor;
         
         positionToLookAt.x = currentMovement.x;
-        positionToLookAt.z = currentMovement.z;
+        positionToLookAt.z = 0; // currentMovement.z;
 
         if (inWater) {
             positionToLookAt.y = currentMovement.y;
@@ -475,6 +511,13 @@ public class AnimationMovementController : MonoBehaviour
 
     void setDefaultCamera()
     {
+        if (characterController.transform.position.x >= -18.76 && characterController.transform.position.x <= 38.25)
+        {
+            cameraManager.setCameraPriority("classroomCamera", 100);
+        } else
+        {
+            cameraManager.setCameraPriority("classroomCamera", 0);
+        }
         if (inWater)
         {
             if (characterController.transform.position.x < 105)
@@ -531,7 +574,7 @@ public class AnimationMovementController : MonoBehaviour
 
         setDefaultCamera();
         if (!canUpdate) { return; }
-        handleObstacles();
+        handleObstacle();
         handleLightBlockers();
         handleRotation();
 
@@ -564,7 +607,10 @@ public class AnimationMovementController : MonoBehaviour
             handleGravity();
             handleJump();
         }
-       // characterController.transform.position = new Vector3(-140.56f, transform.position.y, transform.position.z); // lock x axis
+
+        // auto z adjustment
+        Vector3 zAdjustment = new Vector3 (0, 0, -254.5f - characterController.transform.position.z);
+        characterController.Move(zAdjustment);
     }
 
     private void OnEnable()

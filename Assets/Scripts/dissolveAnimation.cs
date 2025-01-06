@@ -10,6 +10,7 @@ public class DissolveAnimation : MonoBehaviour
     // The name of the variable in the material to adjust
     public string variableName = "Dissolve";
     // The target value for the variable
+    public float initialValue;
     public float targetValue;
     // The duration of the adjustment
     public float duration = 1;
@@ -20,9 +21,12 @@ public class DissolveAnimation : MonoBehaviour
     private Dictionary<Renderer, Material[]> originalMaterials = new Dictionary<Renderer, Material[]>();
 
     // Method to change materials and start the adjustment coroutine
-    public void dissolve(bool revert)
+    public void dissolve(bool revert, float initialValue, float targetValue)
     {
         this.revert = revert;
+        this.initialValue = initialValue;
+        this.targetValue = targetValue;
+
         if (newMaterial == null)
         {
             Debug.LogError("New material not assigned.");
@@ -65,7 +69,7 @@ public class DissolveAnimation : MonoBehaviour
         float time = 0;
 
         // Get the initial value of the variable (assumes all materials have the same initial value)
-        float initialValue = 0.4f;
+        //initialValue = 0.4f;
 
         // Loop over the duration to adjust the variable smoothly
         while (time < duration)

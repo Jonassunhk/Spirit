@@ -24,6 +24,7 @@ public class PoolManager : MonoBehaviour
     public GameObject caustics;
     public GameObject poolSun;
     public GameObject adrianPointLight;
+    public soundManager soundManager;
 
 
     void Start()
@@ -75,12 +76,14 @@ public class PoolManager : MonoBehaviour
         adrianAnimationController.changeToGroundPos();
         adrianAnimator.Play("StandingUp");
         adrianAnimator.speed = 0;
-
         cameraManager.setCameraPriority("Pool Camera", 10);
         yield return new WaitForSeconds(2);
+        soundManager.FadeIn("waterLower", 5f, 0.25f);
         topWaterAnimator.SetTrigger("descend");
         bottomWaterAnimator.SetTrigger("descend");
-        yield return new WaitForSeconds(6);
+        yield return new WaitForSeconds(5);
+        soundManager.FadeOut("waterLower", 1f);
+        yield return new WaitForSeconds(1f);
         waterBox.SetActive(false);
         playerController.exitWater();
         playerController.resetAnimation();
@@ -88,9 +91,11 @@ public class PoolManager : MonoBehaviour
         cameraManager.setCameraPriority("Underwater Gate Camera", 30);
         yield return new WaitForSeconds(3);
         underwaterGateAnimator.SetTrigger("Activate");
+        soundManager.PlaySound("metalDoorOpening");
         yield return new WaitForSeconds(5);
         cameraManager.setCameraPriority("AdrianSceneCamera", 40);
         yield return new WaitForSeconds(4);
+        soundManager.FadeIn("endSceneMusic", 3f, 0.8f);
         cameraManager.resetToDefaultPriority();
         cameraManager.setCameraPriority("Final Scene Follow Camera", 6);
         yield return null;
@@ -98,13 +103,17 @@ public class PoolManager : MonoBehaviour
 
     IEnumerator finalCutScene()
     {
+        playerController.canUpdate = false;
         cameraManager.setCameraPriority("AdrianSceneCamera", 60);
         playerAnimator.SetTrigger("Kneel");
         yield return new WaitForSeconds(8);
-        playerController.dissolveAnimation.dissolve(false);
+        soundManager.PlaySound("deathSound");
+        playerController.dissolveAnimation.dissolve(false, 0.4f, 1f);
         yield return new WaitForSeconds(4);
         adrianAnimator.speed = 1;
-        yield return new WaitForSeconds(6);
+        yield return new WaitForSeconds(15);
+        StartCoroutine(uiManager.showEndStoryline());
+        yield return new WaitForSeconds(20);
         yield return null;
     }
 
@@ -113,6 +122,7 @@ public class PoolManager : MonoBehaviour
     {
         cameraManager.setCameraPriority("Mechanism Camera", 10);
         yield return new WaitForSeconds(2);
+        soundManager.PlaySound("machineSound");
         mechanismAnimator.SetBool("Activated", true);
         yield return new WaitForSeconds(4);
         cameraManager.setCameraPriority("Mechanism Camera", 3);
@@ -123,11 +133,13 @@ public class PoolManager : MonoBehaviour
         if (!pressed1 && interactable1)
         {
             pressed1 = true;
+            soundManager.PlaySound("buttonClick");
             uiManager.removeStoryboard();
             StartCoroutine(waterCutScene());
         } else if (!pressed2 && interactable2)
         {
             pressed2 = true;
+            soundManager.PlaySound("buttonClick");
             uiManager.removeStoryboard();
             StartCoroutine(mechanismCutScene());
         } else if (!pressed3 && interactable3 && waterDescended)

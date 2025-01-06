@@ -15,6 +15,7 @@ TagManager:
   - Pool Button
   - Death Block
   - Save Adrian Button
+  - studentNPC
   layers:
   - Default
   - TransparentFX

@@ -11,10 +11,11 @@ public class GameManager : MonoBehaviour
     public GameState prevState;
     public LightingManager lightingManager;
     public UIManager UIManager; 
+    public startGameManager startGameManager;
+    public Light hallwaySun;
     public AnimationMovementController animationMovementController;
     public GameObject hallwaySpawn, gymSpawn, classroomSpawn, poolSpawn, dialogueLocations;
-
-    bool waterDescended = false;
+    bool gameIntro = false;
 
     public static event Action<GameState> OnGameStateChanged;
 
@@ -22,10 +23,11 @@ public class GameManager : MonoBehaviour
     {
         Instance = this;
     }
+
     // Start is called before the first frame update
     void Start()
     {
-        UpdateGameState(GameState.Pool);
+        UpdateGameState(GameState.Classroom);
         animationMovementController.respawn(State);
         storyboard[1] = "I am the spirit of Adrian. I woke up and found myself detached from Adrian¡¯s body. Where is he? Use arrow keys to move me around.";
         storyboard[2] = "My headphones played a gentle tune of whale calls. The backpack filled with schoolwork pained my shoulders. I continued to walk forward, searching and reminiscing.";
@@ -59,19 +61,29 @@ public class GameManager : MonoBehaviour
         switch(newState)
         {
             case GameState.MainScreen:
+                hallwaySun.enabled = true;
                 StartCoroutine(HandleMainScreen());
                 break;
             case GameState.PlayerDeath:
                 Debug.Log("Here");
                 StartCoroutine(HandlePlayerDeath());
                 break;
-            case GameState.Hallway: 
+            case GameState.Hallway:
+                hallwaySun.enabled = true;
+                if (!gameIntro)
+                {
+                    gameIntro = true;
+                    StartCoroutine(startGameManager.startGameStartScene());
+                }
                 break;
-            case GameState.Gym: 
+            case GameState.Gym:
+                hallwaySun.enabled = true;
                 break;
-            case GameState.Classroom: 
+            case GameState.Classroom:
+                hallwaySun.enabled = false;
                 break;
-            case GameState.Pool: 
+            case GameState.Pool:
+                hallwaySun.enabled = false;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(newState), newState, null);
@@ -93,12 +105,12 @@ public class GameManager : MonoBehaviour
     IEnumerator HandlePlayerDeath()
     {
         Debug.Log("Here2");
-        lightingManager.onDeath();
-        yield return new WaitForSeconds(3);
+        StartCoroutine(UIManager.FadeToOpaque(2f));
+        yield return new WaitForSeconds(2);
         animationMovementController.respawn(prevState);
         UpdateGameState(prevState);
-        lightingManager.onRespawn();
-        yield return new WaitForSeconds(3);
+        StartCoroutine(UIManager.FadeToTransparent(2f));
+        yield return new WaitForSeconds(2);
     }
 }
 
